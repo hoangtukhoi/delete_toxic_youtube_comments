@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body class="dark-mode">
@@ -21,10 +22,10 @@
                 <span>TCD</span>
             </div>
             <nav>
-                <div class="nav-item active">
+                <div class="nav-item active" data-tab="moderation">
                     <i class="fas fa-comments"></i> Kiểm duyệt
                 </div>
-                <div class="nav-item">
+                <div class="nav-item" data-tab="analytics">
                     <i class="fas fa-chart-line"></i> Thống kê
                 </div>
                 <div class="nav-item">
@@ -45,9 +46,23 @@
         <main class="main-content">
             <header class="top-bar">
                 <div class="search-container">
+                    <select id="scan-type" class="glow-input" style="width: 140px; margin-right: 10px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px; font-family: inherit;">
+                        <option value="video" style="color: black;">Video ID</option>
+                        <option value="channel" style="color: black;">Channel ID</option>
+                    </select>
                     <i class="fas fa-link"></i>
-                    <input type="text" id="video-id-input" placeholder="Nhập Video ID YouTube (ví dụ: cxdU2ciJUUQ)...">
-                    <button id="fetch-btn" class="glow-button">Quét Bình Luận</button>
+                    <input type="text" id="video-id-input" placeholder="Nhập ID YouTube (ví dụ: cxdU2ciJUUQ)...">
+                    <button id="fetch-btn" class="glow-button">Quét</button>
+                </div>
+                <!-- Progress Bar UI (Hidden by default) -->
+                <div id="progress-container" class="hidden" style="width: 100%; margin-top: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 5px;">
+                        <span id="progress-message">Đang khởi tạo...</span>
+                        <span id="progress-count">0</span>
+                    </div>
+                    <div class="confidence-bar-container" style="height: 8px; background: rgba(255,255,255,0.1);">
+                        <div id="progress-bar" class="confidence-bar" style="width: 0%; background: var(--accent);"></div>
+                    </div>
                 </div>
                 <div class="stats-mini">
                     <div class="stat-badge">
@@ -91,7 +106,41 @@
                         <p>Nhập Video ID và nhấn Quét để bắt đầu phân tích AI</p>
                     </div>
                 </div>
+
+                <!-- Pagination Controls -->
+                <div id="pagination-controls" class="hidden" style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px;">
+                    <button id="prev-page-btn" class="glow-button" style="padding: 8px 15px; font-size: 0.9em;" disabled><i class="fas fa-chevron-left"></i> Trang trước</button>
+                    <span id="page-info" style="font-weight: bold; min-width: 100px; text-align: center;">Trang 1 / 1</span>
+                    <button id="next-page-btn" class="glow-button" style="padding: 8px 15px; font-size: 0.9em;" disabled>Trang sau <i class="fas fa-chevron-right"></i></button>
+                </div>
             </section>
+
+            <!-- Analytics Section -->
+            <section id="analytics-section" class="analytics-section hidden">
+                <div class="section-header">
+                    <h2>Thống kê Tổng quan</h2>
+                    <div class="actions">
+                        <button id="export-btn" class="glow-button" style="padding: 8px 15px; font-size: 0.9em;">
+                            <i class="fas fa-download"></i> Xuất dữ liệu CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div class="chart-card" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="margin-bottom: 15px; text-align: center;">Tỉ lệ Bình luận</h3>
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                    <div class="chart-card" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="margin-bottom: 15px; text-align: center;">Xu hướng theo ngày</h3>
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                    <div class="chart-card" style="grid-column: 1 / -1; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 style="margin-bottom: 15px; text-align: center;">Top 10 Người Dùng Toxic Nhất</h3>
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 

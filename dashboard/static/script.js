@@ -13,40 +13,159 @@ document.addEventListener('DOMContentLoaded', () => {
     let allComments = [];
     let currentFilter = 'all'; // 'all', 'toxic', 'clean'
     let searchQuery = '';
+    
+    let currentPage = 1;
+    const pageSize = 50;
+    let totalComments = 0;
+    let totalPages = 1;
 
-    // Fetch comments from overall Video ID
+    const scanTypeSelect = document.getElementById('scan-type');
+    const paginationControls = document.getElementById('pagination-controls');
+    const prevPageBtn = document.getElementById('prev-page-btn');
+    const nextPageBtn = document.getElementById('next-page-btn');
+    const pageInfo = document.getElementById('page-info');
+    const progressContainer = document.getElementById('progress-container');
+    const progressMessage = document.getElementById('progress-message');
+    const progressCount = document.getElementById('progress-count');
+    const progressBar = document.getElementById('progress-bar');
+    let scanInterval = null;
+
+    // Start Scanning Task
     fetchBtn.addEventListener('click', async () => {
-        const videoId = videoIdInput.value.trim();
-        if (!videoId) {
-            showToast('Vui lòng nhập Video ID!');
+        const targetId = videoIdInput.value.trim();
+        const scanType = scanTypeSelect ? scanTypeSelect.value : 'video';
+        
+        if (!targetId) {
+            showToast('Vui lòng nhập ID!');
             return;
         }
 
         fetchBtn.disabled = true;
-        fetchBtn.innerText = 'Đang quét...';
-        commentList.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Đang tải AI và quét bình luận từ YouTube...</p></div>';
+        fetchBtn.innerText = 'Đang khởi tạo...';
+        progressContainer.classList.remove('hidden');
+        progressMessage.innerText = 'Đang bắt đầu quét...';
+        progressCount.innerText = '0';
+        progressBar.style.width = '100%';
+        progressBar.classList.add('pulse-animation'); // Assuming some css or just solid color
+        
+        commentList.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Đang chạy tác vụ chạy ngầm (Background Task). Vui lòng đợi...</p></div>';
 
         try {
-            const response = await fetch(`/api/comments?video_id=${videoId}`);
+            const response = await fetch('/api/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: targetId, scan_type: scanType })
+            });
             const data = await response.json();
 
-            if (data.comments) {
-                allComments = data.comments;
-                renderComments();
-                updateStats();
-                showToast(`Đã tìm thấy ${allComments.length} bình luận!`);
+            if (data.task_id) {
+                pollProgress(data.task_id, targetId, scanType);
             } else {
                 throw new Error(data.detail || 'Lỗi không xác định');
             }
         } catch (error) {
             console.error(error);
             showToast('Lỗi: ' + error.message);
+            resetScanUI();
             commentList.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>${error.message}</p></div>`;
-        } finally {
-            fetchBtn.disabled = false;
-            fetchBtn.innerText = 'Quét Bình Luận';
         }
     });
+
+    function pollProgress(taskId, targetId, scanType) {
+        scanInterval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/scan-progress/${taskId}`);
+                const data = await res.json();
+                
+                progressMessage.innerText = data.message;
+                progressCount.innerText = `Đã quét: ${data.progress || 0} bình luận`;
+                
+                if (data.status === 'completed') {
+                    clearInterval(scanInterval);
+                    progressMessage.innerText = 'Hoàn thành! Đang tải dữ liệu...';
+                    progressBar.classList.remove('pulse-animation');
+                    
+                    setTimeout(() => {
+                        currentPage = 1;
+                        fetchComments(targetId, scanType, currentPage);
+                    }, 1000);
+                } else if (data.status === 'error') {
+                    clearInterval(scanInterval);
+                    showToast('Lỗi quét: ' + data.message);
+                    resetScanUI();
+                }
+            } catch (err) {
+                console.error('Polling error', err);
+            }
+        }, 2000); // poll every 2 seconds
+    }
+
+    async function fetchComments(targetId, scanType, page = 1) {
+        try {
+            const url = `/api/comments?target_id=${targetId}&scan_type=${scanType}&page=${page}&limit=${pageSize}&filter_type=${currentFilter}&search=${encodeURIComponent(searchQuery)}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.comments) {
+                allComments = data.comments;
+                totalComments = data.total;
+                currentPage = data.page;
+                totalPages = Math.ceil(totalComments / pageSize) || 1;
+                
+                renderComments();
+                updatePaginationUI();
+                updateStats();
+                showToast(`Đã lấy dữ liệu trang ${currentPage}!`);
+            }
+        } catch (error) {
+            showToast('Lỗi tải bình luận: ' + error.message);
+        } finally {
+            resetScanUI();
+        }
+    }
+
+    function updatePaginationUI() {
+        if (!paginationControls) return;
+        
+        if (totalComments > 0) {
+            paginationControls.classList.remove('hidden');
+            paginationControls.style.display = 'flex';
+        } else {
+            paginationControls.classList.add('hidden');
+        }
+        
+        pageInfo.innerText = `Trang ${currentPage} / ${totalPages}`;
+        prevPageBtn.disabled = currentPage <= 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+    }
+
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                const targetId = videoIdInput.value.trim();
+                const scanType = scanTypeSelect ? scanTypeSelect.value : 'video';
+                fetchComments(targetId, scanType, currentPage);
+            }
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                const targetId = videoIdInput.value.trim();
+                const scanType = scanTypeSelect ? scanTypeSelect.value : 'video';
+                fetchComments(targetId, scanType, currentPage);
+            }
+        });
+    }
+
+    function resetScanUI() {
+        fetchBtn.disabled = false;
+        fetchBtn.innerText = 'Quét';
+        progressContainer.classList.add('hidden');
+    }
 
     // Category filtering
     if (filterBtns) {
@@ -55,16 +174,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentFilter = btn.dataset.filter;
-                renderComments();
+                currentPage = 1;
+                const targetId = videoIdInput.value.trim();
+                const scanType = scanTypeSelect ? scanTypeSelect.value : 'video';
+                if (targetId) fetchComments(targetId, scanType, currentPage);
             });
         });
     }
 
     // Search filter
     if (keywordSearch) {
+        let timeout = null;
         keywordSearch.addEventListener('input', (e) => {
-            searchQuery = e.target.value.toLowerCase();
-            renderComments();
+            searchQuery = e.target.value;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                currentPage = 1;
+                const targetId = videoIdInput.value.trim();
+                const scanType = scanTypeSelect ? scanTypeSelect.value : 'video';
+                if (targetId) fetchComments(targetId, scanType, currentPage);
+            }, 500);
         });
     }
 
@@ -97,16 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getVisibleComments() {
-        return allComments.filter(c => {
-            // Category check
-            if (currentFilter === 'toxic' && !c.is_toxic) return false;
-            if (currentFilter === 'clean' && c.is_toxic) return false;
-            
-            // Search query check
-            if (searchQuery && !c.text.toLowerCase().includes(searchQuery)) return false;
-            
-            return true;
-        });
+        return allComments; // Filtering is now done on the server
     }
 
     function renderComments() {
@@ -164,8 +284,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateStats() {
-        if (statTotal) statTotal.innerText = allComments.length;
-        if (statToxic) statToxic.innerText = allComments.filter(c => c.is_toxic).length;
+        if (statTotal) statTotal.innerText = totalComments;
+        if (statToxic) {
+            // Hiển thị số toxic ở trang hiện tại
+            const currentToxic = allComments.filter(c => c.is_toxic).length;
+            statToxic.innerText = currentToxic;
+        }
     }
 
     async function performModeration(commentId, action) {
@@ -208,5 +332,98 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         }
+    }
+
+    // ==========================================
+    // Tab Navigation & Analytics
+    // ==========================================
+    const navItems = document.querySelectorAll('.nav-item[data-tab]');
+    const moderationSection = document.querySelector('.comment-section');
+    const analyticsSection = document.getElementById('analytics-section');
+    const topBar = document.querySelector('.top-bar');
+
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            navItems.forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
+            
+            if (item.dataset.tab === 'analytics') {
+                moderationSection.classList.add('hidden');
+                topBar.classList.add('hidden');
+                analyticsSection.classList.remove('hidden');
+                loadAnalytics();
+            } else {
+                analyticsSection.classList.add('hidden');
+                topBar.classList.remove('hidden');
+                moderationSection.classList.remove('hidden');
+            }
+        });
+    });
+
+    const exportBtn = document.getElementById('export-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            window.location.href = '/api/export';
+        });
+    }
+
+    let pieChart, lineChart, barChart;
+
+    async function loadAnalytics() {
+        try {
+            const res = await fetch('/api/analytics');
+            const data = await res.json();
+            renderCharts(data);
+        } catch (err) {
+            console.error('Failed to load analytics', err);
+        }
+    }
+
+    function renderCharts(data) {
+        Chart.defaults.color = '#e0e0e0';
+        
+        // 1. Pie Chart
+        const pieCtx = document.getElementById('pieChart');
+        if (pieChart) pieChart.destroy();
+        pieChart = new Chart(pieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Toxic', 'Sạch'],
+                datasets: [{
+                    data: [data.summary.toxic, data.summary.total - data.summary.toxic],
+                    backgroundColor: ['#ff4e50', '#00f260'],
+                    borderWidth: 0
+                }]
+            }
+        });
+
+        // 2. Line Chart (Trend)
+        const lineCtx = document.getElementById('lineChart');
+        if (lineChart) lineChart.destroy();
+        lineChart = new Chart(lineCtx, {
+            type: 'line',
+            data: {
+                labels: data.trend.map(t => t.date),
+                datasets: [
+                    { label: 'Toxic', data: data.trend.map(t => t.toxic), borderColor: '#ff4e50', tension: 0.4 },
+                    { label: 'Sạch', data: data.trend.map(t => t.clean), borderColor: '#00f260', tension: 0.4 }
+                ]
+            }
+        });
+
+        // 3. Bar Chart (Top Users)
+        const barCtx = document.getElementById('barChart');
+        if (barChart) barChart.destroy();
+        barChart = new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: data.top_users.map(u => u.author.substring(0, 15) + '...'),
+                datasets: [{
+                    label: 'Số bình luận Toxic',
+                    data: data.top_users.map(u => u.toxic_count),
+                    backgroundColor: '#00d2ff'
+                }]
+            }
+        });
     }
 });
