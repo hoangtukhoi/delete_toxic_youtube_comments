@@ -1,0 +1,10 @@
+client_secret.json
+__pycache__/
+*.pyc
+.env
+.venv
+env/
+venv/
+*.pkl
+*.model
+.ipynb_checkpoints/

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Youtube Moderator | Premium Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body class="dark-mode">
+    <div class="background-glass"></div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-shield-halved"></i>
+                <span>TCD</span>
+            </div>
+            <nav>
+                <div class="nav-item active">
+                    <i class="fas fa-comments"></i> Kiểm duyệt
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-chart-line"></i> Thống kê
+                </div>
+                <div class="nav-item">
+                    <i class="fas fa-cog"></i> Cài đặt
+                </div>
+            </nav>
+            <div class="user-profile">
+                <div class="avatar-glow"></div>
+                <img src="https://ui-avatars.com/api/?name=Admin&background=random" alt="Avatar">
+                <div class="user-info">
+                    <span class="user-name">Quản trị viên</span>
+                    <span class="user-status">Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-container">
+                    <i class="fas fa-link"></i>
+                    <input type="text" id="video-id-input" placeholder="Nhập Video ID YouTube (ví dụ: cxdU2ciJUUQ)...">
+                    <button id="fetch-btn" class="glow-button">Quét Bình Luận</button>
+                </div>
+                <div class="stats-mini">
+                    <div class="stat-badge">
+                        <span class="label">Tổng số:</span>
+                        <span id="stat-total" class="value">0</span>
+                    </div>
+                    <div class="stat-badge toxic">
+                        <span class="label">Toxic:</span>
+                        <span id="stat-toxic" class="value">0</span>
+                    </div>
+                </div>
+            </header>
+
+            <section class="comment-section">
+                <div class="section-header">
+                    <h2>Lọc bình luận</h2>
+                    <div class="actions">
+                        <button id="bulk-delete-btn" class="action-btn delete-btn hidden">
+                            <i class="fas fa-biohazard"></i> Xóa tất cả Toxic
+                        </button>
+                        <div class="filters">
+                            <button class="filter-btn active" data-filter="all">Tất cả</button>
+                            <button class="filter-btn" data-filter="toxic">Toxic</button>
+                            <button class="filter-btn" data-filter="clean">Sạch</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="advanced-filters">
+                    <div class="filter-group search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="keyword-search" placeholder="Lọc theo từ khóa...">
+                    </div>
+
+                </div>
+
+                <div id="comment-list" class="comment-grid">
+                    <!-- Comment Cards will be injected here -->
+                    <div class="empty-state">
+                        <i class="fas fa-robot"></i>
+                        <p>Nhập Video ID và nhấn Quét để bắt đầu phân tích AI</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>
